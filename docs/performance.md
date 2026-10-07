@@ -1,5 +1,61 @@
 # CPU/RAM deep dive — October 2, 2026
 
+## October 7 ultrawide limits and preview measurements
+
+The screen-share change keeps the raw capture cap at 33,177,600 bytes and encoded
+access units at 2 MiB. Live decoded pictures now permit 8,294,400 pixels rather than
+2,073,600 pixels, with a native RGBA cap of 36 MiB including stride padding.
+A tightly packed maximum-size RGBA picture therefore grows from 8,294,400 to
+33,177,600 bytes. Decoder references, the existing eight-decoder admission limit,
+pending uploads and GPU textures are additional; this is not a process RAM cap.
+The local preview remains capped at 640×360 and 10 fps.
+
+Native 3440×1440 at 60 fps targets 38.2 Mbps rather than the former 16 Mbps
+1920×1080 maximum; the target is bounded at 50 Mbps. Larger output may increase
+conversion, encoding, decoding and upload cost. No native CPU, RSS, GPU, sustained
+frame-rate or release-package comparison was measured for this change. The initial
+implementation session used Linux without the full GTK/GStreamer development
+stack or Windows capture/RTX runtime. Native screenshot control is also unavailable
+in the Windows publishing session. The results below
+remain the October 2 measurements for their original resolutions and builds.
+Synthetic sizing, full-frame conversion and software H.264 round-trip tests are
+correctness evidence, not native performance or Discord compatibility evidence.
+
+### Windows preview package, October 7
+
+The standard voice-enabled package was built from
+`c9b17f4001bd89f849e8717aab0b55571b9bda41` using `cargo xtask package`,
+pinned Rust 1.98.1 and locked dependencies on GitHub's Windows Server 2025 runner
+(`windows-2025-vs2026`, image `20260925.250.1`). The release build uses
+`--no-default-features`; it does not include the demo feature.
+[Build and artifact](https://github.com/sk3lt0r141/Serein/actions/runs/37667644269).
+
+| Metric / method | Baseline | Preview | Delta |
+| --- | ---: | ---: | --- |
+| Executable, ZIP entry length | Unmeasured | 85,480,960 bytes | Unmeasured |
+| Complete portable package, sum of 212 ZIP file entries | Unmeasured | 89,654,511 bytes | Unmeasured |
+| Downloaded distribution ZIP, file length | Unmeasured | 50,440,508 bytes | Unmeasured |
+| Installed footprint, CPU, RSS, GPU and frame pacing | Unmeasured | Unmeasured | Unmeasured |
+
+These are after-only artifact measurements, not a performance comparison. The
+downloaded ZIP matches GitHub's SHA-256 digest
+`8bdd0397ef7ded0cae94471626924d113a2befba0c48e3baf6e8f3b17d529fad`.
+Its PE header identifies a Windows x64 executable, and the bundled README,
+application licenses, third-party notices and voice notices were inspected for
+presence. The executable was not launched and no installed footprint was sampled.
+The artifact contains the portable package; the NSIS installer was built but is
+not included by this preview workflow.
+
+Windows formatting, strict workspace Clippy and focused screen-share checks
+passed (24 tests, 1 ignored). The full workspace run stopped at eight UI failures
+(407 passed, 5 ignored), in unchanged mentions, reply/timeline and presence modules.
+The supplied implementation report records eight corresponding baseline UI
+failures; the baseline was not rerun on this Windows runner. The final production
+check and policy stage of `cargo xtask check` did not run after that failure.
+Live capture, hardware encoder selection and sustained 60 fps remain unverified.
+
+## October 2 baseline
+
 Baseline `f16bc92fde374b91c5482daf802992f2373ee74c`, compared with the runtime
 changes delivered alongside this report. Both revisions were measured on macOS
 27.0 (26A428), Apple M1 MacBookAir10,1, 16 GiB RAM, pinned Rust 1.98.1 and locked

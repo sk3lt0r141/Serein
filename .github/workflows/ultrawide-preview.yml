@@ -1,0 +1,54 @@
+name: Windows ultrawide preview
+
+on:
+  push:
+    branches: [feat/ultrawide-screen-share]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ultrawide-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2.9.2
+        with:
+          cache-on-failure: true
+      - name: Screen-share regressions (offline)
+        shell: bash
+        run: |
+          cargo fmt --all -- --check
+          cargo test --locked -p client-core --lib screen::tests
+          cargo test --locked -p ui --lib screen::tests
+          cargo test --locked -p discord-voice --lib screen::
+          # Decoder cleanup uses a real-time frame-age budget; avoid competing test workers.
+          cargo test --locked -p discord-voice --lib video_receive::tests -- --test-threads=1
+          cargo test --locked -p platform --lib video::tests
+      - name: Install NSIS
+        run: choco install nsis --no-progress -y
+      - name: Build the standard Windows package
+        id: package
+        run: cargo xtask package
+      - name: Full offline checks
+        env:
+          RUST_TEST_THREADS: '1'
+        run: cargo xtask check
+      - uses: actions/upload-artifact@v7.0.1
+        if: ${{ always() && steps.package.outcome == 'success' }}
+        with:
+          name: Serein-Windows-Ultrawide
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14

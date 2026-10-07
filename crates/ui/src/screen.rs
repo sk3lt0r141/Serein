@@ -42,7 +42,13 @@ impl Default for ScreenUi {
 			capture_status: None,
 			supported: false,
 			preview: None,
-			height: if cfg!(target_os = "linux") { 720 } else { 1080 },
+			height: if cfg!(target_os = "windows") {
+				0
+			} else if cfg!(target_os = "linux") {
+				720
+			} else {
+				1080
+			},
 			fps: 30,
 			cursor: true,
 			audio: cfg!(target_os = "macos"),
@@ -66,16 +72,19 @@ impl ScreenUi {
 			self.sources = if cfg!(target_os = "macos") {
 				vec![Source {
 					id: SourceId::SystemPicker,
+					dimensions: None,
 					name: "Choose with the macOS system picker".into(),
 				}]
 			} else {
 				vec![
 					Source {
 						id: SourceId::Display(1),
+						dimensions: Some((3440, 1440)),
 						name: "Display 1 · Synthetic preview".into(),
 					},
 					Source {
 						id: SourceId::Window(2),
+						dimensions: Some((1600, 1000)),
 						name: "Project notes · Synthetic window".into(),
 					},
 				]
@@ -91,14 +100,12 @@ impl ScreenUi {
 		let source = self
 			.selected
 			.filter(|id| self.sources.iter().any(|s| s.id == *id))?;
+		let selected = self.sources.iter().find(|s| s.id == source)?;
+		let (width, height) = selected.output_dimensions(self.height)?;
 		let settings = Settings {
 			source,
-			width: match self.height {
-				480 => 854,
-				1080 => 1920,
-				_ => 1280,
-			},
-			height: self.height,
+			width,
+			height,
 			fps: self.fps,
 			cursor: self.cursor,
 			audio: self.audio,
@@ -165,7 +172,7 @@ impl ScreenUi {
 		}
 	}
 
-	/// Source list, then the capture options Discord exposes without an entitlement.
+	/// Source list followed by quality, frame-rate and audio options.
 	fn body(&mut self, ui: &mut egui::Ui, state: &State) {
 		let colors = crate::design::palette(ui);
 		ui.horizontal(|ui| {
@@ -206,12 +213,48 @@ impl ScreenUi {
 		ui.add_space(6.0);
 		ui.horizontal_wrapped(|ui| {
 			ui.spacing_mut().item_spacing = egui::vec2(6.0, 6.0);
-			for height in [480, 720, 1080] {
+			for height in [480, 720, 1080, 1440, 2160] {
 				if segment(ui, &format!("{height}p"), self.height == height).clicked() {
 					self.height = height;
 				}
 			}
+			let native = self
+				.sources
+				.iter()
+				.find(|s| Some(s.id) == self.selected)
+				.is_some_and(|s| s.output_dimensions(0).is_some());
+			if ui
+				.add_enabled_ui(native, |ui| {
+					segment(ui, "screen-body-native", self.height == 0)
+				})
+				.inner
+				.clicked()
+			{
+				self.height = 0;
+			}
 		});
+		if let Some(settings) = self.settings() {
+			ui.label(crate::i18n::translate_args(
+				"screen-body-output-size",
+				&[
+					("width", &settings.width.to_string()),
+					("height", &settings.height.to_string()),
+					(
+						"bitrate",
+						&format!("{:.1}", f64::from(settings.bit_rate()) / 1_000_000.0),
+					),
+				],
+			));
+			if settings.width.max(settings.height) > 3840
+				|| settings.width.min(settings.height) > 2160
+			{
+				ui.label(crate::i18n::translate(
+					"screen-body-native-hardware-required",
+				));
+			}
+		} else if self.height == 0 && self.selected.is_some() {
+			ui.label(crate::i18n::translate("screen-body-native-unavailable"));
+		}
 		ui.add_space(8.0);
 		ui.label(crate::design::eyebrow(
 			ui,
@@ -230,11 +273,9 @@ impl ScreenUi {
 		ui.add_space(4.0);
 		ui.add(
 			egui::Label::new(
-				egui::RichText::new(crate::i18n::translate(
-					"screen-body-quality-selection-does-not-require-nitro",
-				))
-				.size(12.0)
-				.color(colors.muted),
+				egui::RichText::new(crate::i18n::translate("screen-body-source-shape-help"))
+					.size(12.0)
+					.color(colors.muted),
 			)
 			.wrap(),
 		);
@@ -448,6 +489,34 @@ fn segment(ui: &mut egui::Ui, label: &str, selected: bool) -> egui::Response {
 mod tests {
 	use super::*;
 	#[test]
+	fn native_and_height_presets_use_the_selected_ultrawide_source() {
+		let mut picker = ScreenUi {
+			selected: Some(SourceId::Display(1)),
+			sources: vec![Source {
+				id: SourceId::Display(1),
+				name: "Synthetic ultrawide".into(),
+				dimensions: Some((3440, 1440)),
+			}],
+			height: 0,
+			fps: 60,
+			..Default::default()
+		};
+		let settings = picker.settings().unwrap();
+		assert_eq!((settings.width, settings.height), (3440, 1440));
+		picker.height = 1080;
+		let settings = picker.settings().unwrap();
+		assert_eq!((settings.width, settings.height), (2580, 1080));
+		picker.sources[0].dimensions = Some((5120, 1440));
+		picker.height = 0;
+		let settings = picker.settings().unwrap();
+		assert_eq!((settings.width, settings.height), (5120, 1440));
+		picker.sources[0].dimensions = None;
+		assert!(picker.settings().is_none());
+		picker.height = 1440;
+		let settings = picker.settings().unwrap();
+		assert_eq!((settings.width, settings.height), (2560, 1440));
+	}
+	#[test]
 	fn settings_require_a_current_source_and_offer_high_quality_without_entitlements() {
 		let mut picker = ScreenUi {
 			selected: Some(SourceId::Window(7)),
@@ -456,6 +525,7 @@ mod tests {
 		assert!(picker.settings().is_none());
 		picker.sources.push(Source {
 			id: SourceId::Window(7),
+			dimensions: None,
 			name: "Notes".into(),
 		});
 		picker.height = 1080;

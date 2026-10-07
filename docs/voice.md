@@ -422,9 +422,27 @@ not establish production readiness or superiority over Discord's processing.
 
 ## Screen sharing
 
-In a connected call, select **Share your screen**, choose a display/window, 480p, 720p or 1080p, 15/30/60 fps, cursor visibility and optional **Share system audio**, then select **Share screen**. The screen button changes to **Stop sharing** while starting/sharing; it also remains available in the compact call controls. Call microphone controls remain independent. All presets are selectable without Nitro, but Discord acceptance and sustained frame rate are not guaranteed.
+In a connected call, select **Share your screen**, choose a display/window, quality, 15/30/60 fps, cursor visibility and optional **Share system audio**, then select **Share screen**. The screen button changes to **Stop sharing** while starting/sharing; it also remains available in the compact call controls. Call microphone controls remain independent. All presets are selectable without Nitro, but Discord acceptance and sustained frame rate are not guaranteed.
 
-480p uses 854×480 pixels and a target video bitrate of 2 Mbps at 15/30 fps or 4 Mbps at 60 fps.
+Quality offers 480p, 720p, 1080p, 1440p, 2160p and **Native**. Windows discovery
+supplies physical display/window dimensions, so presets preserve the selected source's
+aspect ratio without enlarging it. Native is the Windows default at 30 fps; select
+60 fps explicitly. A 3440×1440 display uses 3440×1440 at Native/1440p and 2580×1080
+at 1080p. A 5120×1440 display uses 3840×1080 at 1080p, retaining the entire screen.
+Native rounds odd dimensions down to even pixels and is disabled when discovery
+cannot supply a supported size. macOS/Linux system pickers retain fixed 16:9 presets,
+since they select the source after this dialog.
+
+The output shares an 8,294,400-pixel budget within 7680×4320. Target bitrate scales
+with output pixels, preserving the former 2/4/8 Mbps 480p/720p/1080p targets at
+15/30 fps; 60 fps doubles the target, capped at 50 Mbps. Native 3440×1440 at 60 fps
+targets about 38.2 Mbps. These are targets, not throughput measurements.
+The existing hardware encoder remains preferred. OpenH264 software fallback accepts
+at most 3840×2160 or its portrait equivalent; wider native output requires compatible
+hardware and fails with a lower-quality instruction when unavailable. Synthetic
+conversion and software H.264 round trips cover 3440×1440 and scaled ultrawide
+output. Windows capture, RTX encoding, sustained frame rate and Discord viewing
+still require owner-operated verification.
 
 Capture uses macOS 14+ ScreenCaptureKit or Windows Graphics Capture. On macOS,
 Share Screen offers the native `SCContentSharingPicker` to choose one display or
@@ -439,7 +457,7 @@ other windows in that application; this is not isolation of one window's audio.
 Serein's own playback remains excluded. No microphone is captured by screen sharing.
 The native picker has not been opened during synthetic verification.
 
-Source discovery alone does not start streaming. Closing or minimizing a selected source may pause frames or end capture, according to the native API. The initial Windows adapter accepts source dimensions up to 3840×2160. Changes to screen-server metadata, lost video permission, leaving the call and logout stop sharing. The sender never starts itself after reconnection.
+Source discovery alone does not start streaming. Closing or minimizing a selected source may pause frames or end capture, according to the native API. Windows capture accepts source dimensions within the shared 4K pixel budget, including 3440×1440 and 5120×1440, while retaining its 33,177,600-byte raw-frame cap. Larger source pixel counts are rejected even when a scaled output would fit. Changes to screen-server metadata, lost video permission, leaving the call and logout stop sharing. The sender never starts itself after reconnection.
 
 Windows capture requests border removal when the native `IsBorderRequired` API is
 supported (Windows 11), and keeps the system's default border on Windows 10 builds

@@ -2204,6 +2204,11 @@ screen-body-frame-rate = Frame rate
 screen-body-include-the-pointer-in-the-shared-video = Include the pointer in the shared video.
 # Context: body
 screen-body-quality = Quality
+screen-body-native = Native
+screen-body-output-size = { $width } × { $height } · target { $bitrate } Mbps
+screen-body-native-hardware-required = This size needs a compatible hardware encoder. Choose 1080p if sharing fails.
+screen-body-native-unavailable = Native size is unavailable for this source. Choose a quality preset.
+screen-body-source-shape-help = Quality preserves the selected screen's shape when its size is available. Higher resolutions need more bandwidth; lower quality if playback stutters.
 # Context: body
 screen-body-quality-selection-does-not-require-nitro = Quality selection does not require Nitro.
 # Context: body

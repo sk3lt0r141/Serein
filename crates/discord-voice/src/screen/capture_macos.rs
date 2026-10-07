@@ -34,6 +34,7 @@ pub(crate) fn sources() -> Result<Vec<Source>, &'static str> {
 	if SCContentSharingPicker::is_available() {
 		return Ok(vec![Source {
 			id: SourceId::SystemPicker,
+			dimensions: None,
 			name: "Choose with the macOS system picker".into(),
 		}]);
 	}
@@ -54,6 +55,7 @@ pub(crate) fn sources() -> Result<Vec<Source>, &'static str> {
 		}
 		sources.push(Source {
 			id: SourceId::Display(u64::from(display.display_id)),
+			dimensions: None,
 			name: format!("Display {}", display.display_id),
 		});
 		if sources.len() == MAX_SOURCES {
@@ -84,6 +86,7 @@ pub(crate) fn sources() -> Result<Vec<Source>, &'static str> {
 		let name = app.map_or(title.clone(), |app| format!("{app} — {title}"));
 		sources.push(Source {
 			id: SourceId::Window(u64::from(window.window_id)),
+			dimensions: None,
 			name: bounded_name(name),
 		});
 		if sources.len() == MAX_SOURCES {

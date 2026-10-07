@@ -1,7 +1,7 @@
 //! Linux live H.264 decoding through GStreamer. `decodebin` auto-plugs the highest-ranked
 //! decoder, which is the VA-API or NVDEC plugin when one is installed and `avdec_h264`
 //! otherwise. The caller hands over complete, already decrypted Annex-B access units.
-use super::{BUSY, INVALID, MAX_BYTES, UNSUPPORTED};
+use super::{BUSY, INVALID, MAX_LIVE_BYTES, UNSUPPORTED};
 pub use super::{LiveFrame as Frame, LiveSink as Sink, MAX_ACCESS_UNIT};
 use gstreamer as gst;
 use gstreamer::prelude::*;
@@ -200,7 +200,7 @@ fn picture(sample: &gst::Sample) -> Result<Frame, &'static str> {
 	if info.format() != gst_video::VideoFormat::Rgba {
 		return Err(INVALID);
 	}
-	super::check_dimensions(info.width(), info.height())?;
+	super::check_live_dimensions(info.width(), info.height())?;
 	let buffer = sample.buffer().ok_or(INVALID)?;
 	let frame =
 		gst_video::VideoFrameRef::from_buffer_ref_readable(buffer, &info).map_err(|_| INVALID)?;
@@ -209,7 +209,7 @@ fn picture(sample: &gst::Sample) -> Result<Frame, &'static str> {
 	let data = frame.plane_data(0).map_err(|_| INVALID)?;
 	let (w, h) = (info.width() as usize, info.height() as usize);
 	let row = w * 4;
-	if stride < row || data.len() < stride * (h - 1) + row || row * h > MAX_BYTES {
+	if stride < row || data.len() < stride * (h - 1) + row || row * h > MAX_LIVE_BYTES {
 		return Err(INVALID);
 	}
 	let mut rgba = vec![0; row * h];

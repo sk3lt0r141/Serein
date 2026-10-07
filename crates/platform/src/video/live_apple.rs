@@ -298,7 +298,7 @@ unsafe extern "C-unwind" fn output_frame(
 		return;
 	}
 	// SAFETY: VideoToolbox keeps the image buffer alive for the duration of the callback.
-	match unsafe { apple::copy_rgba(&*image) } {
+	match unsafe { apple::copy_rgba(&*image, true) } {
 		Ok((width, height, rgba)) => (output.sink)(Frame {
 			width,
 			height,
