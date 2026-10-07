@@ -33,7 +33,8 @@ jobs:
           cargo test --locked -p client-core --lib screen::tests
           cargo test --locked -p ui --lib screen::tests
           cargo test --locked -p discord-voice --lib screen::
-          cargo test --locked -p discord-voice --lib video_receive::tests
+          # Decoder cleanup uses a real-time frame-age budget; avoid competing test workers.
+          cargo test --locked -p discord-voice --lib video_receive::tests -- --test-threads=1
           cargo test --locked -p platform --lib video::tests
       - name: Install NSIS
         run: choco install nsis --no-progress -y
@@ -41,6 +42,8 @@ jobs:
         id: package
         run: cargo xtask package
       - name: Full offline checks
+        env:
+          RUST_TEST_THREADS: '1'
         run: cargo xtask check
       - uses: actions/upload-artifact@v7.0.1
         if: ${{ always() && steps.package.outcome == 'success' }}
