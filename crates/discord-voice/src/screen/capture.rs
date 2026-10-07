@@ -12,11 +12,11 @@ pub(super) const MAX_SOURCE_WIDTH: u32 = 7680;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 pub(super) const MAX_SOURCE_HEIGHT: u32 = 4320;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
-pub(super) const MAX_FRAME_WIDTH: u32 = 3840;
+pub(super) const MAX_FRAME_WIDTH: u32 = client_core::screen::MAX_VIDEO_WIDTH;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
-pub(super) const MAX_FRAME_HEIGHT: u32 = 2160;
+pub(super) const MAX_FRAME_HEIGHT: u32 = client_core::screen::MAX_VIDEO_HEIGHT;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
-pub(super) const MAX_RAW_BYTES: usize = MAX_FRAME_WIDTH as usize * MAX_FRAME_HEIGHT as usize * 4;
+pub(super) const MAX_RAW_BYTES: usize = client_core::screen::MAX_VIDEO_PIXELS as usize * 4;
 
 #[cfg(any(test, target_os = "macos", target_os = "windows"))]
 pub(super) fn bounded_name(mut name: String) -> String {

@@ -95,11 +95,13 @@ pub fn sources() -> Result<Vec<Source>, &'static str> {
 	{
 		let mut sources = vec![Source {
 			id: SourceId::Portal,
+			dimensions: None,
 			name: "Choose in the system picker".into(),
 		}];
 		if linux::x11_session() {
 			sources.push(Source {
 				id: SourceId::X11Desktop,
+				dimensions: None,
 				name: "Entire X11 desktop · all monitors · no portal".into(),
 			});
 		}
@@ -602,6 +604,11 @@ pub(crate) fn i420_to_nv12(
 }
 
 pub(super) fn encoder(settings: Settings, bitrate: u32) -> Result<Encoder, &'static str> {
+	if settings.width.max(settings.height) > 3840 || settings.width.min(settings.height) > 2160 {
+		return Err(
+			"Native size needs a compatible hardware encoder; choose a lower quality preset",
+		);
+	}
 	let config = EncoderConfig::new()
 		.bitrate(BitRate::from_bps(
 			bitrate.clamp(250_000, settings.bit_rate()),
@@ -680,8 +687,7 @@ fn validate_frame(frame: &RawFrame) -> Result<(usize, usize), &'static str> {
 		.ok_or("Screen capture returned an unsupported frame size")?;
 	if frame.width == 0
 		|| frame.height == 0
-		|| frame.width > 3840
-		|| frame.height > 2160
+		|| !client_core::screen::valid_dimensions(frame.width, frame.height)
 		|| frame.data.len() > MAX_RAW_BYTES
 		|| frame.stride < row_bytes
 		|| required > frame.data.len()
@@ -759,6 +765,41 @@ mod tests {
 	use super::*;
 
 	#[test]
+	fn ultrawide_software_keyframes_decode_at_the_requested_size() {
+		for (width, height) in [(2580, 1080), (3440, 1440), (3840, 1080)] {
+			let settings = Settings {
+				source: SourceId::Display(1),
+				width,
+				height,
+				fps: 60,
+				cursor: true,
+				audio: false,
+			};
+			let mut encoder = encoder(settings, settings.bit_rate()).unwrap();
+			let yuv = YUVBuffer::new(width as usize, height as usize);
+			let (encoded, keyframe) = encode_yuv(&mut encoder, &yuv, true).unwrap();
+			assert!(keyframe);
+			let mut decoder = openh264::decoder::Decoder::new().unwrap();
+			let picture = decoder.decode(&encoded).unwrap().unwrap();
+			assert_eq!(picture.dimensions(), (width as usize, height as usize));
+		}
+		assert!(
+			encoder(
+				Settings {
+					source: SourceId::Display(1),
+					width: 5120,
+					height: 1440,
+					fps: 60,
+					cursor: true,
+					audio: false,
+				},
+				50_000_000
+			)
+			.is_err()
+		);
+	}
+
+	#[test]
 	fn idle_screen_keyframe_uses_latest_snapshot_only_when_ready() {
 		let frame = |value| RawFrame {
 			width: 2,
@@ -806,7 +847,13 @@ mod tests {
 		assert!(worker.take_preview().is_some());
 		assert!(worker.take_preview().is_none());
 		assert!(!worker.ready.load(Ordering::Acquire));
-		for (width, height) in [(3840, 2160), (2, 2160), (3840, 2)] {
+		for (width, height) in [
+			(3840, 2160),
+			(3440, 1440),
+			(5120, 1440),
+			(2, 2160),
+			(3840, 2),
+		] {
 			let frame = RawFrame {
 				width,
 				height,

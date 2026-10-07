@@ -310,4 +310,37 @@ mod tests {
 			assert!(banded == single);
 		}
 	}
+	#[test]
+	fn ultrawide_native_and_scaled_pictures_have_no_letterbox_bands() {
+		for (source_width, source_height, width, height) in [
+			(3440, 1440, 3440, 1440),
+			(3440, 1440, 2580, 1080),
+			(5120, 1440, 5120, 1440),
+			(5120, 1440, 3840, 1080),
+		] {
+			let mut frame = solid(
+				source_width,
+				source_height,
+				source_width as usize * 4,
+				[0, 0, 255, 255],
+			);
+			for row in frame.data.chunks_exact_mut(frame.stride) {
+				for pixel in row[..32].as_chunks_mut::<4>().0 {
+					pixel.copy_from_slice(&[255, 0, 0, 255]);
+				}
+				for pixel in row[frame.stride - 32..].as_chunks_mut::<4>().0 {
+					pixel.copy_from_slice(&[255; 4]);
+				}
+			}
+			for chroma in [Chroma::Interleaved, Chroma::Planar] {
+				let mut out = vec![0; width * height * 3 / 2];
+				bgra_to_yuv420(&frame, width, height, chroma, &mut out).unwrap();
+				// Blue/white edges and the red center survive every row, including all corners.
+				// This catches both cropping and black bands for native and scaled pictures.
+				for row in out[..width * height].chunks_exact(width) {
+					assert_eq!((row[0], row[width / 2], row[width - 1]), (41, 82, 235));
+				}
+			}
+		}
+	}
 }

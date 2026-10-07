@@ -47,6 +47,7 @@ pub(crate) fn sources() -> Result<Vec<Source>, &'static str> {
 			.unwrap_or_else(|_| "Display".to_owned());
 		sources.push(Source {
 			id: SourceId::Display(monitor_id(&monitor)),
+			dimensions: Some((width, height)),
 			name: bounded_name(name),
 		});
 		if sources.len() == MAX_SOURCES {
@@ -74,6 +75,7 @@ pub(crate) fn sources() -> Result<Vec<Source>, &'static str> {
 		}
 		sources.push(Source {
 			id: SourceId::Window(window_id(&window)),
+			dimensions: Some((width, height)),
 			name: bounded_name(title),
 		});
 		if sources.len() == MAX_SOURCES {
@@ -275,8 +277,8 @@ where
 	let Some((width, height)) = item.dimensions() else {
 		return Err("Selected source dimensions are unavailable");
 	};
-	if width == 0 || height == 0 || width > MAX_FRAME_WIDTH || height > MAX_FRAME_HEIGHT {
-		return Err("Selected source exceeds the 4K capture limit");
+	if !client_core::screen::valid_dimensions(width, height) {
+		return Err("Selected source exceeds the supported screen capture pixel budget");
 	}
 	let flags = Flags {
 		frames,

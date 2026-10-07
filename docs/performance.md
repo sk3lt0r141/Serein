@@ -1,5 +1,27 @@
 # CPU/RAM deep dive — October 2, 2026
 
+## October 7 ultrawide limits and pending measurements
+
+The screen-share change keeps the raw capture cap at 33,177,600 bytes and encoded
+access units at 2 MiB. Live decoded pictures now permit 8,294,400 pixels rather than
+2,073,600 pixels, with a native RGBA cap of 36 MiB including stride padding.
+A tightly packed maximum-size RGBA picture therefore grows from 8,294,400 to
+33,177,600 bytes. Decoder references, the existing eight-decoder admission limit,
+pending uploads and GPU textures are additional; this is not a process RAM cap.
+The local preview remains capped at 640×360 and 10 fps.
+
+Native 3440×1440 at 60 fps targets 38.2 Mbps rather than the former 16 Mbps
+1920×1080 maximum; the target is bounded at 50 Mbps. Larger output may increase
+conversion, encoding, decoding and upload cost. No native CPU, RSS, GPU, sustained
+frame-rate or release-package comparison was measured for this change: the agent
+environment is Linux without the full GTK/GStreamer development stack, and has
+no Windows capture/RTX runtime or native screenshot control. The results below
+remain the October 2 measurements for their original resolutions and builds.
+Synthetic sizing, full-frame conversion and software H.264 round-trip tests are
+correctness evidence, not native performance or Discord compatibility evidence.
+
+## October 2 baseline
+
 Baseline `f16bc92fde374b91c5482daf802992f2373ee74c`, compared with the runtime
 changes delivered alongside this report. Both revisions were measured on macOS
 27.0 (26A428), Apple M1 MacBookAir10,1, 16 GiB RAM, pinned Rust 1.98.1 and locked

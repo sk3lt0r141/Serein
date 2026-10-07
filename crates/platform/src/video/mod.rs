@@ -34,6 +34,15 @@ pub mod live;
 
 /// Largest live access unit any backend accepts.
 pub const MAX_ACCESS_UNIT: usize = 2 * 1024 * 1024 + 64 * 1024;
+/// One live RGBA picture, including a little native stride/alignment padding.
+pub const MAX_LIVE_BYTES: usize = 36 * 1024 * 1024;
+
+pub fn check_live_dimensions(width: u32, height: u32) -> Result<(), &'static str> {
+	if !client_core::screen::valid_dimensions(width, height) {
+		return Err("Live video exceeds the supported screen-share pixel budget.");
+	}
+	Ok(())
+}
 
 /// One decoded live picture, tightly packed RGBA.
 pub struct LiveFrame {
@@ -150,6 +159,12 @@ mod tests {
 	use super::*;
 	#[test]
 	fn rotation_and_bounds() {
+		assert!(check_live_dimensions(3440, 1440).is_ok());
+		assert!(check_live_dimensions(5120, 1440).is_ok());
+		assert!(check_live_dimensions(3840, 2160).is_ok());
+		assert!(check_live_dimensions(7680, 1440).is_err());
+		assert!(check_live_dimensions(0, 1440).is_err());
+		assert!(check_dimensions(3440, 1440).is_err());
 		assert!(check_dimensions(1920, 1080).is_ok());
 		assert!(check_dimensions(1921, 1).is_err());
 		assert!(check_dimensions(1920, 1920).is_err());

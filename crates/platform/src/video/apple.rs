@@ -502,7 +502,7 @@ unsafe extern "C-unwind" fn output_frame(
 		(pts.value as f64 / f64::from(pts.timescale) * f64::from(output.timescale)).round() as i64
 	};
 	// SAFETY: VideoToolbox keeps the image buffer alive for the duration of the callback.
-	match unsafe { copy_rgba(&*image) } {
+	match unsafe { copy_rgba(&*image, false) } {
 		Ok((width, height, rgba)) => {
 			let (width, height, rgba) = if output.rotation == 0 {
 				(width, height, rgba)
@@ -523,6 +523,7 @@ unsafe extern "C-unwind" fn output_frame(
 /// Copy one BGRA picture into a tightly packed RGBA buffer after checking every bound.
 pub(super) unsafe fn copy_rgba(
 	pixels: &CVImageBuffer,
+	live: bool,
 ) -> Result<(u32, u32, Vec<u8>), &'static str> {
 	let width = CVPixelBufferGetWidth(pixels);
 	let height = CVPixelBufferGetHeight(pixels);
@@ -531,13 +532,21 @@ pub(super) unsafe fn copy_rgba(
 		u32::try_from(width).map_err(|_| INVALID)?,
 		u32::try_from(height).map_err(|_| INVALID)?,
 	);
-	super::check_dimensions(w, h)?;
+	if live {
+		super::check_live_dimensions(w, h)?;
+	} else {
+		super::check_dimensions(w, h)?;
+	}
 	let row_bytes = width * 4;
 	let total = stride.checked_mul(height).ok_or(INVALID)?;
 	if CVPixelBufferGetPixelFormatType(pixels) != kCVPixelFormatType_32BGRA
 		|| stride < row_bytes
-		|| total > MAX_BYTES
-		|| total > CVPixelBufferGetDataSize(pixels)
+		|| total
+			> if live {
+				super::MAX_LIVE_BYTES
+			} else {
+				MAX_BYTES
+			} || total > CVPixelBufferGetDataSize(pixels)
 	{
 		return Err(INVALID);
 	}

@@ -466,6 +466,14 @@ statements in the historical voice/screen-sharing notes below.
 
 ## Outgoing screen sharing — September 11, 2026
 
+October 7 ultrawide change: Windows source dimensions drive Native and height
+presets, preserving the complete display's aspect ratio. Native 3440×1440 and
+scaled 3840×1080 output pass synthetic OpenH264 encode/decode checks. Raw capture
+and live receive share a 4K total-pixel budget within 7680×4320. Native 5120×1440
+requires a compatible hardware encoder; OpenH264 fallback cannot encode widths
+above 3840. Windows/RTX capture and live Discord acceptance remain unverified.
+See [quality and bitrate details](voice.md#screen-sharing).
+
 October 3 reliability audit: UDP media sends drop on local socket pressure without
 waiting inside the media loop. Established stream rekeys now retain a 30-second
 response/execution deadline, including when WebSocket heartbeats continue.
@@ -627,7 +635,7 @@ permission, virtual device, output rerouting or recording file is added.
 
 Gateway opcodes 18/19 and STREAM_CREATE/STREAM_SERVER_UPDATE/STREAM_DELETE are unofficial normal-user behavior, checked against [discord.py-self](https://github.com/dolfies/discord.py-self/blob/master/discord/gateway.py). A separate RTC connection uses the stream RTC server/channel IDs and the parent call session, sharing one ephemeral DAVE signing identity. The `rtc_server_id - 1` MLS group mapping comes from [discord-native-voice](https://github.com/dolfies/discord-native-voice/blob/master/discord/ext/native_voice/stream_client.py); it is not an official protocol guarantee. H264 negotiation and UDP transport are required; mismatches fail visibly. Video is DAVE-encrypted before RFC 6184 packetization and per-packet transport AEAD. There is no plaintext fallback. [DAVE protocol](https://github.com/discord/dave-protocol/blob/main/protocol.md) supplies the encryption requirement.
 
-Screen source discovery and capture occur off the UI/audio threads. Application-owned source lists are capped at 64 labels of 256 bytes. Raw BGRA frames are capped at 3840×2160/33,177,600 bytes; macOS requests the selected output dimensions. Windows prechecks source size and stops on oversized callback frames, but its upstream driver adapter can resize its native GPU pool before that callback. One raw frame and three encoded frames can be queued; H264 frames are capped at 2 MiB, encrypted packetization at 2,048 fragments of at most 1,200 transport bytes. Quality presets target 4–16 Mbps, with frame dropping under load. They are limits/targets, not measured delivery guarantees.
+Screen source discovery and capture occur off the UI/audio threads. Application-owned source lists are capped at 64 labels of 256 bytes. Raw BGRA frames are capped at 8,294,400 pixels within 7680×4320 and 33,177,600 bytes; macOS requests the selected output dimensions. Windows prechecks source size and stops on oversized callback frames, but its upstream driver adapter can resize its native GPU pool before that callback. One raw frame and three encoded frames can be queued; H264 frames are capped at 2 MiB, encrypted packetization at 2,048 fragments of at most 1,200 transport bytes. Quality presets target 2–50 Mbps, with frame dropping under load. They are limits/targets, not measured delivery guarantees. Live receiving permits the same pixel budget, with a 36 MiB native RGBA buffer cap for stride padding; the attachment player's 1080p limit is unchanged. Native decoder reference pictures, UI textures and driver allocations are additional.
 
 Call and stream transports send an eight-byte native UDP ping after discovery and every
 five seconds, including receive-only streams and muted calls. The packet uses the
